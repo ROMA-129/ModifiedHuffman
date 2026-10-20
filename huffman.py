@@ -1,47 +1,42 @@
-from collections import Counter
 import heapq
-from itertools import count
 
 
-# --------------------------------------------------
-# 1. Calculate Frequencies
-# --------------------------------------------------
+# 1. Calculate frequencies
+def calculate_frequencies(data):
+    frequencies = {}
 
-def calculate_frequencies(text):
-    return dict(Counter(text))
+    for symbol in data:
+        if symbol in frequencies:
+            frequencies[symbol] += 1
+        else:
+            frequencies[symbol] = 1
+
+    return frequencies
 
 
-# --------------------------------------------------
-# 2. Calculate Probabilities
-# --------------------------------------------------
-
-def calculate_probabilities(frequencies):
-    total = sum(frequencies.values())
+# 2. Calculate probabilities
+def calculate_probabilities(frequencies, total):
+    probabilities = {}
 
     if total == 0:
-        return {}
+        return probabilities
 
-    return {
-        char: freq / total
-        for char, freq in frequencies.items()
-    }
+    for symbol in frequencies:
+        probabilities[symbol] = frequencies[symbol] / total
+
+    return probabilities
 
 
-# --------------------------------------------------
 # 3. Apply Minimum Probability Limit
-# --------------------------------------------------
-
 def apply_probability_limit(probabilities, min_limit):
     filtered = {}
     others = {}
 
-    for char, prob in probabilities.items():
-
-        if prob <= min_limit:
-            others[char] = prob
-
+    for symbol in probabilities:
+        if probabilities[symbol] <= min_limit:
+            others[symbol] = probabilities[symbol]
         else:
-            filtered[char] = prob
+            filtered[symbol] = probabilities[symbol]
 
     if others:
         filtered["Others"] = sum(others.values())
@@ -49,61 +44,47 @@ def apply_probability_limit(probabilities, min_limit):
     return filtered, others
 
 
-# --------------------------------------------------
 # 4. Build Huffman Tree
-# --------------------------------------------------
-
 def build_huffman_tree(probabilities):
-
     if not probabilities:
         return None
 
     heap = []
-    order = count()
+    order = 0
 
-    for char, prob in probabilities.items():
+    for symbol in probabilities:
         heapq.heappush(
             heap,
-            (prob, next(order), char)
+            (probabilities[symbol], order, symbol)
         )
+        order += 1
 
     while len(heap) > 1:
+        p1, _, left = heapq.heappop(heap)
+        p2, _, right = heapq.heappop(heap)
 
-        prob1, _, left = heapq.heappop(heap)
-        prob2, _, right = heapq.heappop(heap)
-
-        new_node = (left, right)
+        parent = (left, right)
 
         heapq.heappush(
             heap,
-            (
-                prob1 + prob2,
-                next(order),
-                new_node
-            )
+            (p1 + p2, order, parent)
         )
+        order += 1
 
     return heap[0][2]
 
 
-# --------------------------------------------------
 # 5. Generate Huffman Codes
-# --------------------------------------------------
-
 def generate_huffman_codes(tree):
-
     codes = {}
 
     def traverse(node, code):
-
-        if isinstance(node, str):
-            codes[node] = code or "0"
+        if not isinstance(node, tuple):
+            codes[node] = code if code else "0"
             return
 
-        left, right = node
-
-        traverse(left, code + "0")
-        traverse(right, code + "1")
+        traverse(node[0], code + "0")
+        traverse(node[1], code + "1")
 
     if tree is not None:
         traverse(tree, "")
@@ -111,60 +92,16 @@ def generate_huffman_codes(tree):
     return codes
 
 
-# --------------------------------------------------
-# 6. Generate Codes for Others Symbols
-# --------------------------------------------------
+# 6. Generate Original Fixed-Length Codes
+def generate_original_codes(symbols):
+    symbols = sorted(symbols)
 
-def generate_others_codes(others):
+    # At least one bit is used, including the one-symbol case.
+    length = max(1, (len(symbols) - 1).bit_length())
 
-    if not others:
-        return {}
+    codes = {}
 
-    total = sum(others.values())
+    for index, symbol in enumerate(symbols):
+        codes[symbol] = format(index, "0{}b".format(length))
 
-    normalized_probabilities = {
-        char: prob / total
-        for char, prob in others.items()
-    }
-
-    others_tree = build_huffman_tree(
-        normalized_probabilities
-    )
-
-    return generate_huffman_codes(others_tree)
-
-
-# --------------------------------------------------
-# 7. Complete Huffman Processing
-# --------------------------------------------------
-
-def process_huffman(text, min_limit):
-
-    frequencies = calculate_frequencies(text)
-
-    probabilities = calculate_probabilities(
-        frequencies
-    )
-
-    filtered, others = apply_probability_limit(
-        probabilities,
-        min_limit
-    )
-
-    tree = build_huffman_tree(filtered)
-
-    codes = generate_huffman_codes(tree)
-
-    others_codes = generate_others_codes(others)
-
-    return {
-        "frequencies": frequencies,
-        "probabilities": probabilities,
-        "filtered": filtered,
-        "others": others,
-        "tree": tree,
-        "codes": codes,
-        "others_codes": others_codes
-    }
-
-
+    return codes, length
