@@ -1,21 +1,15 @@
-# ==================================================
-# File: decompression.py
-# Purpose:
-# - Read the compressed binary file and its required metadata.
-# - Decode the bit sequence using the Huffman coding information.
-# - Handle symbols belonging to the "Others" category.
-# - Reconstruct and save the original text.
-# ==================================================
 import json
 
 def read_compressed_file(filename):
-    # Read the overhead (first line) and the packed bytes (the rest)
     with open(filename, "rb") as file:
+        header_length = int.from_bytes(file.read(4), "big")
 
-        first_line = file.readline()
+        overhead = json.loads(
+            file.read(header_length).decode("utf-8")
+        )
+
         data = file.read()
 
-    overhead = json.loads(first_line.decode("utf-8"))
     return overhead, data
 
 
@@ -86,9 +80,9 @@ def decompress_to_text(input_filename):
 
     return decode_bits(
         bits,
-        overhead["codes"],
-        overhead["original_codes"],
-        overhead["original_length"],
+        overhead["main_codes"],
+        overhead["others_codes"],
+        overhead["fixed_length"]
     )
 
 
